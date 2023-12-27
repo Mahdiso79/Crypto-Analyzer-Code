@@ -1,0 +1,79 @@
+import yfinance as yf
+from datetime import datetime, timedelta
+
+def calculate_profit(previous_close, current_price):
+    return ((current_price - previous_close) / previous_close) * 100
+
+def analyze_portfolio_performance(portfolio, target_daily_profit, target_weekly_profit):
+    data = []
+
+    # اطلاعات ارزهای دیجیتال
+    symbols = ["BTC-USD", "ETH-USD", "XRP-USD", "BCH-USD", "LTC-USD"]
+
+    for symbol, quantity in portfolio.items():
+        end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')  # از دیروقت تا دیروقت دیروز
+        start_date_weekly = (datetime.today() - timedelta(days=8)).strftime('%Y-%m-%d')  # از دیروقت تا دیروقت هفته گذشته
+
+        # تحلیل روزانه
+        daily_crypto_data = yf.download(symbol, start=start_date_weekly, end=end_date, interval="1d")
+        daily_prices = daily_crypto_data["Close"]
+        daily_returns = daily_prices.pct_change().dropna()
+        daily_return = daily_returns.iloc[-1] * 100
+        current_price_daily = daily_prices.iloc[-1]
+        previous_close_daily = daily_prices.iloc[-2]
+        profit_percent_daily = calculate_profit(previous_close_daily, current_price_daily)
+
+        # تحلیل هفتگی
+        weekly_crypto_data = yf.download(symbol, start=start_date_weekly, end=end_date, interval="1wk")
+        weekly_prices = weekly_crypto_data["Close"]
+        weekly_returns = weekly_prices.pct_change().dropna()
+        weekly_return = weekly_returns.mean() * 100
+        current_price_weekly = weekly_prices.iloc[-1]
+        previous_close_weekly = weekly_prices.iloc[-2]
+        profit_percent_weekly = calculate_profit(previous_close_weekly, current_price_weekly)
+
+        data.append({"Symbol": symbol, 
+                     "Quantity": quantity, 
+                     "CurrentPriceDaily": current_price_daily, 
+                     "ProfitPercentDaily": profit_percent_daily, 
+                     "DailyReturn": daily_return,
+                     "CurrentPriceWeekly": current_price_weekly, 
+                     "ProfitPercentWeekly": profit_percent_weekly, 
+                     "WeeklyReturn": weekly_return})
+
+    # چاپ اطلاعات
+    for item in data:
+        print(f"Symbol: {item['Symbol']}, Daily Return: {item['DailyReturn']:.2f}%, Current Price (Daily): {item['CurrentPriceDaily']:.2f}, Profit Percent (Daily): {item['ProfitPercentDaily']:.2f}%, Weekly Return: {item['WeeklyReturn']:.2f}%, Current Price (Weekly): {item['CurrentPriceWeekly']:.2f}, Profit Percent (Weekly): {item['ProfitPercentWeekly']:.2f}%")
+
+    # محاسبه سوددهی کل سبد خرید
+    total_investment = sum(item["Quantity"] * item["CurrentPriceDaily"] for item in data)
+    total_portfolio_value = sum(item["Quantity"] * item["CurrentPriceDaily"] * (1 + item["ProfitPercentDaily"] / 100) for item in data)
+
+    overall_portfolio_profit = ((total_portfolio_value - total_investment) / total_investment) * 100
+
+    # اعلان نتیجه
+    if overall_portfolio_profit >= target_daily_profit:
+        print(f"تبریک! سبد خرید شما به سوددهی روزانه {target_daily_profit:.2f}% رسید.")
+    else:
+        print(f"سبد خرید شما هنوز به سوددهی روزانه {target_daily_profit:.2f}% نرسیده است.")
+
+    if overall_portfolio_profit >= target_weekly_profit:
+        print(f"تبریک! سبد خرید شما به سوددهی هفتگی {target_weekly_profit:.2f}% رسید.")
+    else:
+        print(f"سبد خرید شما هنوز به سوددهی هفتگی {target_weekly_profit:.2f}% نرسیده است.")
+
+# مثال: سبد خرید با تعداد مشخص از ارزها
+my_portfolio = {
+    "BTC-USD": 1,  # مثلا 1 بیت‌کوین
+    "ETH-USD": 5,  # مثلا 5 اتریوم
+    "XRP-USD": 1000,  # مثلا 1000 ریپل
+    "BCH-USD": 2,  # مثلا 2 بیت‌کوین‌کش
+    "LTC-USD": 10,  # مثلا 10 لایت‌کوین
+}
+
+# درصد سود مورد نظر برای اطلاع
+target_daily_profit_percentage = 2
+target_weekly_profit_percentage = 5
+
+# بررسی سوددهی سبد خرید
+analyze_portfolio_performance(my_portfolio, target_daily_profit_percentage, target_weekly_profit_percentage)
