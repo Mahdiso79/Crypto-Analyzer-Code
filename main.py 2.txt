@@ -1,0 +1,90 @@
+import yfinance as yf
+from datetime import datetime, timedelta
+
+def calculate_profit(previous_close, current_price):
+    return ((current_price - previous_close) / previous_close) * 100
+
+def get_trend(prices):
+    daily_returns = prices.pct_change().dropna()
+    if daily_returns.empty:
+        return "نامشخص"
+    elif daily_returns.iloc[-1] > 0:
+        return "صعودی"
+    else:
+        return "نزولی"
+
+def analyze_portfolio_performance(portfolio, target_daily_profit, target_weekly_profit):
+    data = []
+
+    for symbol, quantity in portfolio.items():
+        end_date = datetime.today().strftime('%Y-%m-%d')
+        start_date_weekly = (datetime.today() - timedelta(days=8)).strftime('%Y-%m-%d')
+
+        # دریافت اطلاعات جدید از API
+        crypto_data = yf.download(symbol, start=start_date_weekly, end=end_date, interval="1d")
+        prices = crypto_data["Close"]
+        trend = get_trend(prices)
+        current_price = prices.iloc[-1]
+        previous_close = prices.iloc[-2]
+        daily_return = prices.pct_change().iloc[-1] * 100
+        profit_percent_daily = calculate_profit(previous_close, current_price)
+
+        weekly_prices = crypto_data["Close"].resample('1W').ffill()
+        weekly_return = weekly_prices.pct_change().mean() * 100
+        trend_weekly = get_trend(weekly_prices)
+
+        data.append({"Symbol": symbol, 
+                     "Quantity": quantity, 
+                     "CurrentPriceDaily": current_price, 
+                     "ProfitPercentDaily": profit_percent_daily, 
+                     "DailyReturn": daily_return,
+                     "Trend": trend,
+                     "WeeklyReturn": weekly_return, 
+                     "TrendWeekly": trend_weekly})
+
+    for item in data:
+        print(f"Symbol: {item['Symbol']}, Daily Return: {item['DailyReturn']:.2f}%, Current Price (Daily): {item['CurrentPriceDaily']:.2f}, Profit Percent (Daily): {item['ProfitPercentDaily']:.2f}%, Trend: {item['Trend']}, Weekly Return: {item['WeeklyReturn']:.2f}%, Trend (Weekly): {item['TrendWeekly']}")
+
+    total_investment = sum(item["Quantity"] * item["CurrentPriceDaily"] for item in data)
+    total_portfolio_value = sum(item["Quantity"] * item["CurrentPriceDaily"] * (1 + item["ProfitPercentDaily"] / 100) for item in data)
+
+    overall_portfolio_profit = ((total_portfolio_value - total_investment) / total_investment) * 100
+
+    if overall_portfolio_profit >= target_daily_profit:
+        print(f"تبریک! سبد خرید شما به سوددهی روزانه {target_daily_profit:.2f}% رسید.")
+    else:
+        print(f"سبد خرید شما هنوز به سوددهی روزانه {target_daily_profit:.2f}% نرسیده است.")
+
+    if overall_portfolio_profit >= target_weekly_profit:
+        print(f"تبریک! سبد خرید شما به سوددهی هفتگی {target_weekly_profit:.2f}% رسید.")
+    else:
+        print(f"سبد خرید شما هنوز به سوددهی هفتگی {target_weekly_profit:.2f}% نرسیده است.")
+
+def get_user_portfolio():
+    my_portfolio = {}
+    symbols = ["BTC-USD", "ETH-USD", "XRP-USD", "BCH-USD", "LTC-USD"]
+
+    for symbol in symbols:
+        try:
+            quantity = float(input(f"تعداد {symbol} در سبد خرید شما: "))
+            my_portfolio[symbol] = quantity
+        except ValueError:
+            print("ورودی نامعتبر. لطفاً یک عدد وارد کنید.")
+
+    return my_portfolio
+
+def get_target_profit():
+    try:
+        target_daily_profit = float(input("درصد سود مورد نظر برای اطلاع روزانه: "))
+        target_weekly_profit = float(input("درصد سود مورد نظر برای اطلاع هفتگی: "))
+        return target_daily_profit, target_weekly_profit
+    except ValueError:
+        print("ورودی نامعتبر. لطفاً یک عدد وارد کنید.")
+        return get_target_profit()
+
+# درصد سود مورد نظر برای اطلاع
+target_daily_profit_percentage, target_weekly_profit_percentage = get_target_profit()
+
+# بررسی سوددهی سبد خرید
+user_portfolio = get_user_portfolio()
+analyze_portfolio_performance(user_portfolio, target_daily_profit_percentage, target_weekly_profit_percentage)
